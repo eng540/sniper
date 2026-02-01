@@ -404,6 +404,7 @@ class SessionStats:
     
     # Rebirths
     rebirths: int = 0
+    session_rebirths: int = 0  # <--- أضفت هذا السطر
     
     # Results
     success: bool = False
@@ -423,6 +424,7 @@ class SessionStats:
             "navigation_errors": self.navigation_errors,
             "pages_loaded": self.pages_loaded,
             "rebirths": self.rebirths,
+            "session_rebirths": self.session_rebirths,  # <--- أضفت هذا السطر
             "success": self.success
         }
     
@@ -434,5 +436,6 @@ class SessionStats:
             f"Slots: {self.slots_found} | "
             f"Captchas: {self.captchas_solved}/{self.captchas_failed} | "
             f"Rebirths: {self.rebirths} | "
+            f"Session Rebirths: {self.session_rebirths} | "  # <--- أضفت هذا السطر
             f"Errors: {self.errors}"
         )

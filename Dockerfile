@@ -1,6 +1,5 @@
-FROM mcr.microsoft.com/playwright/python:v1.40.0-jammy
+FROM mcr.microsoft.com/playwright/python:v1.58.0-jammy
 
-# إعداد متغيرات البيئة لرؤية السجلات فوراً
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app

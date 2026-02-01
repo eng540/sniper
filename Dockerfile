@@ -12,9 +12,9 @@ ENV TZ=Asia/Aden
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # ================================
-# System Dependencies (تم التصحيح)
+# System Dependencies (FINAL FIX)
 # ================================
-# التغيير هنا: استبدلنا libgl1-mesa-glx بـ libgl1
+# تم استبدال libgl1-mesa-glx (القديمة) بـ libgl1 (الجديدة)
 RUN apt-get update && apt-get install -y \
     wget \
     curl \

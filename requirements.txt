@@ -1,24 +1,19 @@
-# ==========================================
-# ELITE SNIPER V2.0 - PRODUCTION REQUIREMENTS
-# ==========================================
+# Elite Sniper v2.0 - Production Dependencies
 
-# Core Automation
-playwright==1.58.0
+# Browser automation
+playwright>=1.40.0
 
-# CAPTCHA & Image Processing (STABILITY FIXES)
-ddddocr==1.4.11
-# استخدام النسخة headless يمنع مشاكل الشاشة والرسوميات
-opencv-python-headless>=4.8.0
-Pillow>=10.2.0
-# ddddocr لا يعمل مع numpy 2.0، لذا حددنا الإصدار أقل من 2
-numpy<2
+# OCR for captcha solving
+ddddocr>=1.4.3
 
-# Time & Environment
-ntplib>=0.4.0
-pytz>=2024.1
-python-dateutil>=2.8.2
+# Environment configuration
 python-dotenv>=1.0.0
 
-# Network & Logging
+# HTTP requests for Telegram
 requests>=2.31.0
-loguru>=0.7.2
+
+# Timezone handling
+pytz>=2023.3
+
+# NTP time synchronization (new in v2.0)
+ntplib>=0.4.0

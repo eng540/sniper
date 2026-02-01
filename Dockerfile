@@ -12,7 +12,7 @@ ENV TZ=Asia/Aden
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # ================================
-# System Dependencies
+# System Dependencies (تم التحديث)
 # ================================
 RUN apt-get update && apt-get install -y \
     wget \
@@ -31,6 +31,8 @@ RUN apt-get update && apt-get install -y \
     libgtk-3-0 \
     tzdata \
     procps \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # ================================
@@ -44,14 +46,11 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 WORKDIR /app
 
 # ================================
-# Python Dependencies (FIXED)
+# Python Dependencies
 # ================================
 RUN pip install --no-cache-dir --upgrade pip
 
-# 1. Copy requirements first
 COPY requirements.txt .
-
-# 2. Install ALL dependencies from the file (Solves ddddocr missing issue)
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ================================
@@ -64,7 +63,6 @@ RUN playwright install chromium --with-deps
 # ================================
 COPY . /app
 
-# Ensure evidence directory exists
 RUN mkdir -p /app/evidence
 
 # ================================

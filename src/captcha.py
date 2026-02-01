@@ -14,10 +14,11 @@ logger = logging.getLogger("EliteSniperV2.Captcha")
 try:
     import ddddocr
     DDDDOCR_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    # هذا السطر سيكشف لنا الملف الناقص (غالباً libGL.so.1)
+    logger.critical(f"🔥 ddddocr SYSTEM ERROR: {e}")
     DDDDOCR_AVAILABLE = False
     logger.warning("⚠️ ddddocr not available - captcha solving disabled")
-
 
 class EnhancedCaptchaSolver:
     """

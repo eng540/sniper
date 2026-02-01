@@ -5,6 +5,8 @@ playwright==1.58.0
 
 # OCR for captcha solving
 ddddocr>=1.4.3
+pillow
+numpy
 
 # Environment configuration
 python-dotenv>=1.0.0
@@ -12,8 +14,10 @@ python-dotenv>=1.0.0
 # HTTP requests for Telegram
 requests>=2.31.0
 
-# Timezone handling
+# Timezone & Utils
 pytz>=2023.3
-
-# NTP time synchronization
+python-dateutil
 ntplib>=0.4.0
+
+# Logging
+loguru

@@ -1,7 +1,7 @@
 # Elite Sniper v2.0 - Production Dependencies
 
-# Browser automation
-playwright>=1.40.0
+# Browser automation (LOCKED VERSION)
+playwright==1.58.0
 
 # OCR for captcha solving
 ddddocr>=1.4.3
@@ -15,5 +15,5 @@ requests>=2.31.0
 # Timezone handling
 pytz>=2023.3
 
-# NTP time synchronization (new in v2.0)
+# NTP time synchronization
 ntplib>=0.4.0

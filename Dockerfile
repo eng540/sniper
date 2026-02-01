@@ -14,7 +14,6 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 # ================================
 # System Dependencies
 # ================================
-# تثبيت تبعيات النظام الضرورية لتشغيل المتصفح يدوياً
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
@@ -45,31 +44,27 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 WORKDIR /app
 
 # ================================
-# Python Dependencies (AUTOMATED)
+# Python Dependencies (FIXED)
 # ================================
 RUN pip install --no-cache-dir --upgrade pip
 
-# 1. نسخ ملف المتطلبات أولاً (للاستفادة من الكاش عند عدم تغييره)
+# 1. Copy requirements first
 COPY requirements.txt .
 
-# 2. التثبيت المباشر (يحل مشكلة ddddocr المفقودة)
+# 2. Install ALL dependencies from the file (Solves ddddocr missing issue)
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ================================
-# Install Playwright Browsers
+# Install Playwright
 # ================================
-# تثبيت متصفح كروم فقط لتقليل الحجم
 RUN playwright install chromium --with-deps
 
 # ================================
-# Copy Project Files
+# Copy Application
 # ================================
 COPY . /app
 
-# ================================
-# Create Evidence Directory
-# ================================
-# إنشاء المجلد لتجنب أخطاء حفظ الصور
+# Ensure evidence directory exists
 RUN mkdir -p /app/evidence
 
 # ================================
@@ -79,6 +74,6 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD python -c "import sys; sys.exit(0)"
 
 # ================================
-# Run Application
+# Run
 # ================================
 CMD ["python", "-m", "src.main"]

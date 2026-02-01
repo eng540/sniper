@@ -14,6 +14,7 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 # ================================
 # System Dependencies
 # ================================
+# تثبيت تبعيات النظام الضرورية لتشغيل المتصفح يدوياً
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
@@ -48,15 +49,16 @@ WORKDIR /app
 # ================================
 RUN pip install --no-cache-dir --upgrade pip
 
-# 1. Copy requirements first to leverage Docker cache
+# 1. نسخ ملف المتطلبات أولاً (للاستفادة من الكاش عند عدم تغييره)
 COPY requirements.txt .
 
-# 2. Install directly from the single source of truth
+# 2. التثبيت المباشر (يحل مشكلة ddddocr المفقودة)
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ================================
 # Install Playwright Browsers
 # ================================
+# تثبيت متصفح كروم فقط لتقليل الحجم
 RUN playwright install chromium --with-deps
 
 # ================================
@@ -67,6 +69,7 @@ COPY . /app
 # ================================
 # Create Evidence Directory
 # ================================
+# إنشاء المجلد لتجنب أخطاء حفظ الصور
 RUN mkdir -p /app/evidence
 
 # ================================

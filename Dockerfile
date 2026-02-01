@@ -81,6 +81,5 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD python -c "import sys; sys.exit(0)"
 
 # ================================
-# Default Command
-# ================================
-CMD ["python", "main.py"]
+#============================
+CMD ["python", "-m", "src.main"]]

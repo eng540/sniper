@@ -345,6 +345,7 @@ class EnhancedCaptchaSolver:
         if code_len in [4, 5]:
             logger.warning(f"[{location}] OCR incomplete: '{code}' ({code_len} chars) -需要6个字符!")
             return False, "TOO_SHORT"
+    
     def solve(self, image_bytes: bytes, location: str = "SOLVE") -> Tuple[str, str]:
         """
         Solve captcha from image bytes with validation
@@ -372,7 +373,7 @@ class EnhancedCaptchaSolver:
             
             for attempt in range(max_attempts):
                 # Solve using OCR
-                result = self.ocr.predict(image_bytes)
+                result = self.ocr.classification(image_bytes)
                 result = result.replace(" ", "").strip().lower()
                 
                 # Clean common OCR mistakes
@@ -521,7 +522,7 @@ class EnhancedCaptchaSolver:
         page: Page, 
         location: str = "GENERAL",
         timeout: int = 10000
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> Tuple[bool, Optional[str], str]:
         """
         Complete captcha solving workflow
         Uses pre-solved code if available
@@ -736,10 +737,33 @@ class CaptchaSolver:
         if not self.ocr:
             return ""
         try:
-            res = self.ocr.predict(image_bytes)
+            res = self.ocr.classification(image_bytes)
             res = res.replace(" ", "").strip()
             print(f"[AI] Captcha Solved: {res}")
             return res
         except Exception as e:
             print(f"[AI] Error solving captcha: {e}")
+            return ""
+
+
+
+
+
+def solve_from_bytes(self, image_bytes: bytes) -> str:
+        """
+        Solve captcha from bytes using ddddocr
+        """
+        if not self.ocr:
+            return ""
+            
+        try:
+            # FIX: Changed .predict() to .classification()
+            result = self.ocr.classification(image_bytes)
+            
+            # تنظيف النتيجة (إزالة المسافات والرموز)
+            cleaned_result = result.strip().replace(" ", "").upper()
+            return cleaned_result
+            
+        except Exception as e:
+            logger.error(f"Captcha solve error: {e}")
             return ""

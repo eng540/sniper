@@ -12,9 +12,9 @@ ENV TZ=Asia/Aden
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # ================================
-# System Dependencies (FINAL FIX)
+# System Dependencies (COMPLETED)
 # ================================
-# تم استبدال libgl1-mesa-glx (القديمة) بـ libgl1 (الجديدة)
+# التغيير هنا: تمت إضافة libgomp1 (ضرورية لـ ddddocr/ONNX)
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
@@ -34,6 +34,7 @@ RUN apt-get update && apt-get install -y \
     procps \
     libgl1 \
     libglib2.0-0 \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 # ================================

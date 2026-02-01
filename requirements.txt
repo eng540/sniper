@@ -1,23 +1,21 @@
-# Elite Sniper v2.0 - Production Dependencies
+# ==========================================
+# ELITE SNIPER V2.0 - PRODUCTION REQUIREMENTS
+# ==========================================
 
-# Browser automation (LOCKED VERSION)
+# Core Automation (LOCKED)
 playwright==1.58.0
 
-# OCR for captcha solving
-ddddocr>=1.4.3
-pillow
-numpy
+# CAPTCHA Solving (CRITICAL)
+ddddocr>=1.4.11
+Pillow>=10.2.0
+numpy>=1.26.0
 
-# Environment configuration
-python-dotenv>=1.0.0
-
-# HTTP requests for Telegram
-requests>=2.31.0
-
-# Timezone & Utils
-pytz>=2023.3
-python-dateutil
+# Time & Environment
 ntplib>=0.4.0
+pytz>=2024.1
+python-dateutil>=2.8.2
+python-dotenv>=1.0.1
 
-# Logging
-loguru
+# Network & Logging
+requests>=2.31.0
+loguru>=0.7.2

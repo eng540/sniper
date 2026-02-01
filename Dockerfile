@@ -48,7 +48,6 @@ WORKDIR /app
 # ================================
 RUN pip install --no-cache-dir --upgrade pip
 
-# Playwright + OCR + Core
 RUN pip install --no-cache-dir \
     playwright \
     ddddocr \
@@ -75,11 +74,12 @@ COPY . /app
 RUN mkdir -p /app/evidence
 
 # ================================
-# Healthcheck (اختياري لكن ذكي)
+# Healthcheck
 # ================================
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD python -c "import sys; sys.exit(0)"
 
 # ================================
-#============================
-CMD ["python", "-m", "src.main"]]
+# Run Application (CORRECT)
+# ================================
+CMD ["python", "-m", "src.main"]

@@ -1397,7 +1397,7 @@ class EliteSniperV2:
                     except:
                         pass
                     context, page, session = self.create_context(browser, worker_id, proxy)
-                    self.global_stats.session_rebirths += 1
+                    self.global_stats.rebirths += 1  # تم التصحيح هنا
             
             worker_logger.info("[END] Max cycles reached")
             

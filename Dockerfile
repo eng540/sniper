@@ -44,19 +44,15 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 WORKDIR /app
 
 # ================================
-# Python Dependencies
+# Python Dependencies (AUTOMATED)
 # ================================
 RUN pip install --no-cache-dir --upgrade pip
 
-RUN pip install --no-cache-dir \
-    playwright \
-    ddddocr \
-    pillow \
-    numpy \
-    requests \
-    pytz \
-    python-dateutil \
-    loguru
+# 1. Copy requirements first to leverage Docker cache
+COPY requirements.txt .
+
+# 2. Install directly from the single source of truth
+RUN pip install --no-cache-dir -r requirements.txt
 
 # ================================
 # Install Playwright Browsers
@@ -80,6 +76,6 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD python -c "import sys; sys.exit(0)"
 
 # ================================
-# Run Application (CORRECT)
+# Run Application
 # ================================
 CMD ["python", "-m", "src.main"]

@@ -277,8 +277,8 @@ class EliteSniperV2:
             """)
             
             # Timeouts
-            context.set_default_timeout(25000)
-            context.set_default_navigation_timeout(30000)
+            context.set_default_timeout(45000)  # Increased from 25 to 45 seconds
+            context.set_default_navigation_timeout(60000)  # Increased from 30 to 60 seconds
             
             # Resource blocking for performance
             def route_handler(route):
@@ -916,7 +916,11 @@ class EliteSniperV2:
                 # Handle form captcha
                 has_captcha, _ = self.solver.safe_captcha_check(page, "ATK_FORM")
                 if has_captcha:
-                    success, code, captcha_status = self.solver.solve_from_page(page, "ATK_FORM")
+                    success, code, captcha_status = self.solver.solve_form_captcha_with_retry(
+                        page, 
+                        "ATK_FORM",
+                        max_attempts=5
+                    )
                     if success and code:
                         self.solver.submit_captcha(page, "enter")
                         try:
@@ -1127,7 +1131,7 @@ class EliteSniperV2:
                     # ═══════════════════════════════════════════════════════════════
                     
                     try:
-                        page.goto(url, timeout=30000, wait_until="domcontentloaded")
+                        page.goto(url, timeout=45000, wait_until="domcontentloaded")
                         session.current_url = url
                         session.touch()
                         self.global_stats.pages_loaded += 1
@@ -1260,7 +1264,7 @@ class EliteSniperV2:
                     worker_logger.info(f"[DAY] Navigating to day page...")
                     
                     try:
-                        page.goto(day_url, timeout=20000, wait_until="domcontentloaded")
+                        page.goto(day_url, timeout=35000, wait_until="domcontentloaded")
                         session.touch()
                     except Exception as e:
                         worker_logger.error(f"[NAV ERROR] Day page: {e}")
@@ -1286,44 +1290,62 @@ class EliteSniperV2:
                     self.debug_manager.save_critical_screenshot(page, "slots_found", worker_id)
                     
                     # ═══════════════════════════════════════════════════════════════
-                    # STEP 3: FORM PAGE - ALWAYS HAS CAPTCHA
+                    # STEP 3: FORM PAGE - CORRECT FLOW: FILL → CAPTCHA → SUBMIT
                     # ═══════════════════════════════════════════════════════════════
-                    
+
                     # Click first available slot
                     slot_href = slot_links[0].get_attribute("href")
                     if not slot_href:
                         continue
-                    
+
                     slot_url = f"{base_domain}/{slot_href}" if not slot_href.startswith("http") else slot_href
-                    
+
                     worker_logger.info(f"[FORM] Navigating to booking form...")
-                    
+
                     try:
-                        page.goto(slot_url, timeout=20000, wait_until="domcontentloaded")
+                        page.goto(slot_url, timeout=40000, wait_until="domcontentloaded")
                         session.touch()
                     except Exception as e:
                         worker_logger.error(f"[NAV ERROR] Form page: {e}")
                         continue
-                    
+
                     # Save form page evidence
                     self.debug_manager.save_debug_html(page, "form_page", worker_id)
                     self.debug_manager.save_critical_screenshot(page, "form_page", worker_id)
-                    
-                    # Check for captcha on form page
-                    has_captcha, _ = self.solver.safe_captcha_check(page, "FORM")
-                    
-                    if has_captcha:
-                        worker_logger.info("[FORM] Captcha found - solving with retry logic...")
+
+                    worker_logger.info("[FORM] 🎯 PAGE REACHED - Starting booking process")
+
+                    # ═══════════════════════════════════════════════════════════════
+                    # PHASE 1: FILL FORM DATA FIRST
+                    # ═══════════════════════════════════════════════════════════════
+                    worker_logger.info("[FORM] Phase 1: Filling form data...")
+
+                    if not self.fill_booking_form(page, session):
+                        worker_logger.error("[FORM] ❌ Failed to fill form")
+                        continue
+
+                    worker_logger.info("[FORM] ✅ Form data filled successfully")
+
+                    # Save evidence after filling
+                    self.debug_manager.save_debug_html(page, "form_filled", worker_id)
+                    self.debug_manager.save_critical_screenshot(page, "form_filled", worker_id)
+
+                    # ═══════════════════════════════════════════════════════════════
+                    # PHASE 2: SOLVE CAPTCHA WITH SMART RETRY ON SAME PAGE
+                    # ═══════════════════════════════════════════════════════════════
+                    worker_logger.info("[FORM] Phase 2: Solving captcha with same-page retry...")
+
+                    max_captcha_attempts = 3
+                    captcha_solved = False
+                    captcha_code = ""
+
+                    for captcha_attempt in range(1, max_captcha_attempts + 1):
+                        worker_logger.info(f"[FORM] Captcha attempt {captcha_attempt}/{max_captcha_attempts}")
                         
-                        # === SMART RETRY LOGIC ===
-                        # Instead of giving up on failure, reload captcha and try again
-                        # This preserves our valuable slot!
-                        success, code, captcha_status = self.solver.solve_form_captcha_with_retry(
-                            page, 
-                            "FORM_SUBMIT",
-                            max_attempts=5  # Try up to 5 times before giving up
-                        )
+                        # Solve the captcha
+                        success, code, captcha_status = self.solver.solve_from_page(page, f"FORM_ATTEMPT_{captcha_attempt}")
                         
+                        # Check for session poisoning
                         if captcha_status in ["BLACK_IMAGE", "BLACK_DETECTED"]:
                             worker_logger.critical("[BLACK CAPTCHA] Session poisoned!")
                             try:
@@ -1331,58 +1353,92 @@ class EliteSniperV2:
                             except:
                                 pass
                             context, page, session = self.create_context(browser, worker_id, proxy)
+                            break  # Exit the month loop
+                        
+                        # If captcha solved successfully
+                        if success and code and len(code) >= 4:
+                            captcha_solved = True
+                            captcha_code = code
+                            worker_logger.info(f"[FORM] ✅ Captcha solved: '{code}' (Status: {captcha_status})")
+                            
+                            # Update statistics
+                            self.global_stats.captchas_solved += 1
+                            session.mark_captcha_solved()
                             break
                         
-                        if not success or not code:
-                            worker_logger.warning(f"[CAPTCHA] Form captcha failed after retries: {captcha_status}")
-                            self.global_stats.captchas_failed += 1
-                            # Still continue to try next slot - we tried our best
-                            continue
-                        
-                        worker_logger.info(f"[CAPTCHA] Form captcha solved: '{code}'")
-                        self.global_stats.captchas_solved += 1
-                        session.mark_captcha_solved()
-                    
-                    # ═══════════════════════════════════════════════════════════════
-                    # FILL AND SUBMIT FORM
-                    # ═══════════════════════════════════════════════════════════════
-                    
-                    # Fill booking form
-                    if self.fill_booking_form(page, session):
-                        worker_logger.info("[FORM] Filled successfully")
-                        
-                        # Save evidence before submit
-                        self.debug_manager.save_debug_html(page, "form_filled", worker_id)
-                        self.debug_manager.save_critical_screenshot(page, "form_filled", worker_id)
-                        
-                        # Submit form
-                        if self.submit_form(page, session):
-                            worker_logger.critical("=" * 60)
-                            worker_logger.critical("[SUCCESS] APPOINTMENT BOOKED!")
-                            worker_logger.critical("=" * 60)
-                            
-                            # Save success evidence
-                            self.debug_manager.save_debug_html(page, "success", worker_id)
-                            self.debug_manager.save_critical_screenshot(page, "success", worker_id)
-                            
-                            # Send notification
-                            try:
-                                send_success_notification(f"APPOINTMENT BOOKED!")
-                            except Exception as e:
-                                worker_logger.error(f"[NOTIFY] Failed: {e}")
-                            
-                            # Mark success
-                            with self.lock:
-                                self.global_stats.success = True
-                            self.stop_event.set()
-                            
-                            return  # EXIT: Success!
+                        # If captcha failed
                         else:
-                            worker_logger.warning("[SUBMIT] Form submission failed")
-                            self.debug_manager.save_debug_html(page, "submit_failed", worker_id)
+                            worker_logger.warning(f"[FORM] ❌ Captcha failed: {captcha_status}, Code: '{code}'")
+                            self.global_stats.captchas_failed += 1
+                            
+                            # If we have more attempts, reload captcha image on SAME PAGE
+                            if captcha_attempt < max_captcha_attempts:
+                                worker_logger.info("[FORM] 🔄 Reloading captcha image on same page...")
+                                
+                                # Try to reload captcha without leaving the page
+                                reload_success = self._reload_captcha_on_same_page(page)
+                                
+                                if reload_success:
+                                    worker_logger.info("[FORM] ✅ Captcha image reloaded, trying again...")
+                                    time.sleep(2)  # Wait for new image to load
+                                    continue
+                                else:
+                                    worker_logger.warning("[FORM] ⚠️ Could not reload captcha, refreshing page...")
+                                    try:
+                                        # Gentle page refresh
+                                        page.reload(timeout=15000)
+                                        time.sleep(2)
+                                        
+                                        # Re-fill form data (preserve session)
+                                        self.fill_booking_form(page, session)
+                                        worker_logger.info("[FORM] ✅ Page refreshed and form re-filled")
+                                    except Exception as refresh_error:
+                                        worker_logger.error(f"[FORM] ❌ Page refresh failed: {refresh_error}")
+                                        break
+                            
+                            # No more attempts
+                            else:
+                                worker_logger.error("[FORM] 💔 All captcha attempts failed")
+                                break
+
+                    # If captcha not solved, move to next time slot
+                    if not captcha_solved:
+                        worker_logger.warning("[FORM] Skipping this time slot due to captcha failure")
+                        continue
+
+                    # Save evidence after captcha
+                    self.debug_manager.save_critical_screenshot(page, "after_captcha", worker_id)
+
+                    # ═══════════════════════════════════════════════════════════════
+                    # PHASE 3: SUBMIT FORM (NO CAPTCHA CHECK HERE!)
+                    # ═══════════════════════════════════════════════════════════════
+                    worker_logger.info("[FORM] Phase 3: Submitting form...")
+
+                    # Submit form (modified version that doesn't check for captcha)
+                    if self._submit_form_without_captcha_check(page, session, worker_id):
+                        worker_logger.critical("=" * 60)
+                        worker_logger.critical("[SUCCESS] APPOINTMENT BOOKED!")
+                        worker_logger.critical("=" * 60)
+                        
+                        # Save success evidence
+                        self.debug_manager.save_debug_html(page, "success", worker_id)
+                        self.debug_manager.save_critical_screenshot(page, "success", worker_id)
+                        
+                        # Send notification
+                        try:
+                            send_success_notification(f"APPOINTMENT BOOKED!")
+                        except Exception as e:
+                            worker_logger.error(f"[NOTIFY] Failed: {e}")
+                        
+                        # Mark success
+                        with self.lock:
+                            self.global_stats.success = True
+                        self.stop_event.set()
+                        
+                        return  # EXIT: Success!
                     else:
-                        worker_logger.warning("[FORM] Form fill failed")
-                        self.debug_manager.save_debug_html(page, "fill_failed", worker_id)
+                        worker_logger.warning("[FORM] Form submission failed")
+                        self.debug_manager.save_debug_html(page, "submit_failed", worker_id)
                 
                 # Sleep based on mode
                 sleep_time = self.get_sleep_interval()
@@ -1397,7 +1453,7 @@ class EliteSniperV2:
                     except:
                         pass
                     context, page, session = self.create_context(browser, worker_id, proxy)
-                    self.global_stats.rebirths += 1  # تم التصحيح هنا
+                    self.global_stats.rebirths += 1
             
             worker_logger.info("[END] Max cycles reached")
             
@@ -1410,6 +1466,180 @@ class EliteSniperV2:
             except:
                 pass
             worker_logger.info("[END] Session closed")
+    
+    # ==================== Helper Functions ====================
+    
+    def _reload_captcha_on_same_page(self, page: Page) -> bool:
+        """
+        Try to reload captcha image without leaving the current page
+        Returns True if successful, False otherwise
+        """
+        try:
+            # Method 1: Look for reload link
+            reload_selectors = [
+                "a[href*='reloadCaptcha']",
+                "img[src*='captcha'] + a",
+                "a:has-text('Reload')",
+                "a:has-text('Refresh')",
+                "a:has-text('New image')",
+                "a:has-text('Neues Bild')"
+            ]
+            
+            for selector in reload_selectors:
+                try:
+                    if page.locator(selector).count() > 0:
+                        page.locator(selector).first.click()
+                        time.sleep(1.5)  # Wait for new image
+                        return True
+                except:
+                    continue
+            
+            # Method 2: Try JavaScript to refresh captcha image
+            try:
+                result = page.evaluate("""
+                    () => {
+                        // Find captcha image
+                        const captchaImg = document.querySelector('img[src*="captcha"], img[src*="CAPTCHA"]');
+                        if(captchaImg && captchaImg.src) {
+                            // Add timestamp to force reload
+                            const separator = captchaImg.src.includes('?') ? '&' : '?';
+                            captchaImg.src = captchaImg.src + separator + 't=' + Date.now();
+                            return true;
+                        }
+                        return false;
+                    }
+                """)
+                
+                if result:
+                    time.sleep(1.5)
+                    return True
+            except:
+                pass
+            
+            # Method 3: Try to click the captcha image itself (some sites reload on click)
+            try:
+                if page.locator("img[src*='captcha']").count() > 0:
+                    page.locator("img[src*='captcha']").first.click()
+                    time.sleep(1.5)
+                    return True
+            except:
+                pass
+            
+            return False
+            
+        except Exception as e:
+            logger.warning(f"[CAPTCHA RELOAD] Failed: {e}")
+            return False
+
+    def _submit_form_without_captcha_check(self, page: Page, session: SessionState, worker_id: int) -> bool:
+        """
+        Submit form WITHOUT checking for captcha (already solved)
+        """
+        worker_logger = logging.getLogger(f"EliteSniperV2.Submit")
+        
+        max_attempts = 5
+        
+        for attempt in range(1, max_attempts + 1):
+            try:
+                # Check session health only
+                if not self.validate_session_health(page, session, "SUBMIT"):
+                    return False
+                
+                worker_logger.info(f"[W{worker_id}] Submit attempt {attempt} (no captcha check)")
+                
+                # Method 1: Try Enter key first (most reliable)
+                try:
+                    page.keyboard.press("Enter")
+                    worker_logger.info(f"[W{worker_id}] Pressed Enter for submit")
+                except:
+                    # Method 2: Look for submit button
+                    submit_selectors = [
+                        "input[type='submit']",
+                        "button[type='submit']",
+                        "input.button[value*='book']",
+                        "input.button[value*='Book']",
+                        "button:has-text('Book')",
+                        "button:has-text('Submit')",
+                        "input[name='submit']"
+                    ]
+                    
+                    submitted = False
+                    for selector in submit_selectors:
+                        try:
+                            if page.locator(selector).count() > 0:
+                                page.locator(selector).first.click()
+                                worker_logger.info(f"[W{worker_id}] Clicked submit: {selector}")
+                                submitted = True
+                                break
+                        except:
+                            continue
+                    
+                    if not submitted:
+                        # Method 3: Try any button
+                        try:
+                            page.locator("button").first.click()
+                            worker_logger.info(f"[W{worker_id}] Clicked first button")
+                        except:
+                            pass
+                
+                # Wait for response
+                try:
+                    page.wait_for_load_state("networkidle", timeout=8000)
+                except:
+                    pass
+                
+                time.sleep(3)  # Reasonable wait for result
+                
+                # Update statistics
+                with self.lock:
+                    self.global_stats.forms_submitted += 1
+                
+                # Check for success
+                content = page.content().lower()
+                
+                success_indicators = [
+                    "appointment number",
+                    "termin nummer",
+                    "confirmation",
+                    "successfully",
+                    "booked successfully",
+                    "vielen dank",
+                    "ihre buchung",
+                    "your appointment",
+                    "booking confirmed"
+                ]
+                
+                for indicator in success_indicators:
+                    if indicator in content:
+                        worker_logger.critical(f"🏆 [W{worker_id}] VICTORY! Found: {indicator}")
+                        return True
+                
+                # Check for silent rejection (form still visible)
+                if page.locator("input[name='lastname']").count() > 0:
+                    worker_logger.warning(f"⚔️ [W{worker_id}] Silent reject (attempt {attempt})")
+                    
+                    # Check if data was cleared
+                    try:
+                        lastname_value = page.locator("input[name='lastname']").input_value()
+                        if lastname_value != Config.LAST_NAME:
+                            # Data was cleared, refill
+                            self.fill_booking_form(page, session)
+                    except:
+                        pass
+                    
+                    continue  # Try again
+                
+                # Check for error
+                if "error" in content or "fehler" in content:
+                    worker_logger.error(f"❌ [W{worker_id}] Server error detected")
+                    return False
+                    
+            except Exception as e:
+                worker_logger.error(f"❌ [W{worker_id}] Submit attempt {attempt} error: {e}")
+                session.increment_failure(str(e))
+        
+        worker_logger.warning(f"💔 [W{worker_id}] Max submit attempts reached")
+        return False
     
     # ==================== Main Entry Point ====================
     

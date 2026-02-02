@@ -76,4 +76,4 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
 # ================================
 # Run
 # ================================
-CMD ["python", "-m", "src.main"]
+CMD ["python", "-m", "src.main"
